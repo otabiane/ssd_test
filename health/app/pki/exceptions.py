@@ -1,0 +1,2 @@
+class PKIError(Exception):
+    pass

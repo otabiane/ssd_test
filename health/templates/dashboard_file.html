@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+{% extends 'base.html' %}
+{% block content %}
+<div class="main-panel ps" id="main-panel">
+    <div class="panel-header panel-header-sm"></div>
+    <div class="content">
+        <div class="container-fluid">
+            <div class="card text-center">
+                <div class="d-flex justify-content-between">
+                    <h5 class="card-title p-3 notch bg-gradient text-white text-center mt-0" style="width: fit-content"><b>Your Files</b></h5>
+                    <a href="/dashboard" class="btn btn-secondary m-3">Back</a>
+                </div>
+                <div class="row justify-content-center" id="files-container">
+                </div>
+                <div class="row justify-content-center" id="files-container-doctor">
+                    <table class="table table-hover">
+                        <thead class="font-weight-bold">
+                            <tr>
+                                <th>#</th>
+                                <th>Proposition</th>
+                                <th>Doctor</th>
+                                <th>Approve</th>
+                                <th>Decline</th>
+                                <th>Options</th>
+                            </tr>
+                        </thead>
+                        <tbody id="folder-container"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        const userId = {{ request.session.user_id }};
+        const token = "{{ csrf_token }}";
+        const folderId = {{ folder_id }};
+        
+        DashboardManager.init(userId, token, false);
+        DashboardManager.loadFiles(folderId);
+        
+        $("#file_input").fileinput({
+            showUpload: false,
+            showRemove: true,
+            uploadUrl: "/upload_files",
+            fileActionSettings: {
+                indicatorNew: '<i class="fas fa-plus-circle text-warning"></i>',
+                indicatorSuccess: '<i class="fas fa-check-circle text-success"></i>',
+                indicatorError: '<i class="fas fa-exclamation-circle text-danger"></i>',
+                indicatorLoading: '<i class="fas fa-spinner fa-spin text-muted"></i>'
+            },
+            uploadExtraData: function() {
+              return {
+                  'csrfmiddlewaretoken': token,
+                  'parent_id': folderId
+              };
+            }
+        }).on('fileuploaded', function(event, previewId, index, fileId) {
+            DashboardManager.loadFiles(folderId);
+            
+            $('#file_input').fileinput('clear');
+        });
+    });
+</script>
+{% endblock extra_js %}

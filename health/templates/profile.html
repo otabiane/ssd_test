@@ -1,0 +1,576 @@
+
+<!-- profil.html -->
+{% extends 'base_doctor.html' %}
+{% block content %}
+<div class="container" style="margin-top: 15vh">
+  <div class="row justify-content-center" id="files-container">
+     <!-- SECTION VAULT : INCHANGÉE -->
+    <form action="change_psw" class="form col-md-4" method="post">
+      {% csrf_token %}
+      <h5><span class="badge badge-info">Vault Settings</span></h5>
+
+      <label for="vault_psw">Set or Change vault password</label>
+      <input class="form-control" id="vault_psw" maxlength="10" minlength="6"
+             required type="password" name="vault_psw">
+
+      <input class="form-control btn btn-info" type="submit" value="change">
+    </form>
+    <!-- SECTION ACCOUNT : MODIFIÉE -->
+    <!-- Ajoutez data-ajax-form pour indiquer que c'est un formulaire AJAX personnalisé -->
+    <form id="change-acc-psw" class="form col-md-4" data-ajax-form="true">
+      {% csrf_token %}
+      <h5><span class="badge badge-warning text-white">Account Settings</span></h5>
+
+      <label for="current_psw">Current password *</label>
+      <input class="form-control"
+             id="current_psw"
+             type="password"
+             required
+             name="current_psw">
+
+      <label for="new_psw">New password</label>
+      <input class="form-control"
+             id="new_psw"
+             type="password"
+             minlength="12"
+             required
+             name="new_psw">
+
+      <!-- Changez en bouton type="button" pour éviter la soumission normale -->
+      <button type="button" class="form-control btn btn-info" id="submit-password-change">
+        Change password
+      </button>
+    </form>
+    <form id="change-email-form" class="form col-md-4" data-ajax-form="true">
+      {% csrf_token %}
+      <h5><span class="badge badge-success text-white">Email Settings</span></h5>
+
+      <label for="current_psw_email">Current password *</label>
+      <input class="form-control"
+             id="current_psw_email"
+             type="password"
+             required
+             name="current_psw_email">
+
+      <label for="new_email">New Email Address</label>
+      <input class="form-control"
+             id="new_email"
+             type="email"
+             required
+             name="new_email">
+
+      <button type="button" class="form-control btn btn-success" id="submit-email-change">
+        Change Email
+      </button>
+    </form>
+    <form id="change-profile-form" class="form col-md-4" data-ajax-form="true">
+      {% csrf_token %}
+      <h5><span class="badge badge-primary">Profile Settings</span></h5>
+
+      <label for="current_psw_profile">Current password *</label>
+      <input class="form-control"
+             id="current_psw_profile"
+             type="password"
+             required
+             name="current_psw_profile">
+
+      <label for="new_firstname">First Name</label>
+      <input class="form-control"
+             id="new_firstname"
+             type="text"
+             name="new_firstname"
+             placeholder="Leave empty to keep unchanged">
+
+      <label for="new_lastname">Last Name</label>
+      <input class="form-control"
+             id="new_lastname"
+             type="text"
+             name="new_lastname"
+             placeholder="Leave empty to keep unchanged">
+
+      {% if role == 'doctor' %}
+      <label for="new_organization">Organization / Hospital</label>
+      <input class="form-control"
+             id="new_organization"
+             type="text"
+             name="new_organization"
+             placeholder="Leave empty to keep unchanged">
+      {% endif %}
+
+      <button type="button" class="form-control btn btn-primary" id="submit-profile-change">
+        Update Profile
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock content %}
+{% block extra_js %}
+<script>
+// Vérifiez d'abord que jQuery est chargé
+if (typeof $ === 'undefined') {
+    console.error('jQuery is not loaded!');
+}
+
+$(function () {
+    // 1. DÉFINITION DE LA VARIABLE MANQUANTE
+    const submitBtn = document.getElementById('submit-password-change');
+
+    // Sécurité : on vérifie que le bouton existe bien sur la page
+    if (!submitBtn) {
+        console.error('Le bouton #submit-password-change est introuvable !');
+        return;
+    }
+
+    submitBtn.addEventListener('click', async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        console.log('[DEBUG] Submit button clicked');
+
+        const current_psw = document.getElementById('current_psw').value;
+        const new_psw = document.getElementById('new_psw').value;
+        
+        if (!current_psw || !new_psw) {
+            Swal.fire('Error', 'Please fill in both password fields', 'error');
+            return;
+        }
+
+        // Vérification basique de la force du nouveau mot de passe
+        if (typeof isPasswordStrong === 'function' && !isPasswordStrong(new_psw)) {
+            return; 
+        }
+
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        try {
+            // 1. Récupérer les données de l'utilisateur CONNECTÉ
+            console.log('[DEBUG] Step 1: Getting current user data');
+            
+            const response = await $.ajax({
+                url: '/get_current_user_data',
+                type: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                dataType: 'json'
+            });
+
+            if (!response || !response.user_data) {
+                throw new Error(response.error || 'Failed to retrieve user data');
+            }
+
+            const user_data = response.user_data;
+            console.log('[DEBUG] User data retrieved for:', user_data.email);
+
+            // 2. Vérifier l'ancien mot de passe
+            console.log('[DEBUG] Step 2: Verifying current password via decryption');
+            
+            let profile;
+            try {
+                profile = await handleProfile(user_data, current_psw);
+                
+                if (!profile) {
+                    Swal.fire('Error', 'Incorrect current password or data corruption', 'error');
+                    return;
+                }
+            } catch(e) {
+                console.error('[DEBUG] Decryption failed:', e);
+                Swal.fire('Error', 'Incorrect current password', 'error');
+                return;
+            }
+
+            // 3. Récupérer les clés depuis KeyManager
+            console.log('[DEBUG] Step 3: Getting keys from KeyManager');
+            const keyManager = KeyManager.getKey();
+            const privateKey = keyManager._privateKey;
+            const publicKey = user_data.public_key;
+
+            // 4. Préparer les outils de chiffrement
+            const imported_public_key = await importPublicKey(publicKey, 'encrypt');
+            const imported_sign_private_key = await importPrivateKey(privateKey, 'sign');
+            const imported_decrypt_private_key = await importPrivateKey(privateKey, 'decrypt');
+
+            // Déchiffrer les clés symétriques ACTUELLES
+            const symmetric_key_base64 = await decryptWithPrivateKey(
+                user_data.encrypted_symmetric_key, 
+                imported_decrypt_private_key
+            );
+            const symmetric_key = await importKey(base64ToArrayBuffer(symmetric_key_base64));
+            
+            const hmac_key_base64 = await decryptWithPrivateKey(
+                user_data.encrypted_hmac_key, 
+                imported_decrypt_private_key
+            );
+            const hmac_key = await importHmacKey(base64ToArrayBuffer(hmac_key_base64));
+
+            // 5. Générer les nouvelles clés dérivées du NOUVEAU mot de passe
+            console.log('[DEBUG] Step 5: Generating new derived keys');
+            const new_derived_key = await derivePasswordKey(new_psw, user_data.email);
+            const new_derived_hash_key = await deriveHashPassword(new_psw, user_data.email);
+            
+            // Re-chiffrer la clé privée RSA
+            const new_encrypted_private_key = await encryptData(privateKey, new_derived_key);
+            
+            // Générer le nouveau HMAC
+            const new_hmac_private_key = await generateMAC(
+                JSON.stringify(new_encrypted_private_key), 
+                new_derived_hash_key
+            );
+
+            // 6. Re-chiffrer et Re-signer les clés symétriques
+            console.log('[DEBUG] Step 6: Re-encrypting symmetric keys');
+            
+            const new_encrypted_symmetric_key_obj = await encryptAndSignKey(
+                symmetric_key, 
+                imported_public_key, 
+                imported_sign_private_key
+            );
+            
+            const new_encrypted_hmac_key_obj = await encryptAndSignKey(
+                hmac_key, 
+                imported_public_key, 
+                imported_sign_private_key
+            );
+
+            // 7. Envoyer au serveur
+            console.log('[DEBUG] Step 7: Sending to server');
+            const formData = new FormData();
+            formData.append('new_private_key', JSON.stringify(new_encrypted_private_key));
+            formData.append('new_hmac_private_key', new_hmac_private_key);
+            
+            formData.append('new_encrypted_symmetric_key', new_encrypted_symmetric_key_obj.key);
+            formData.append('new_signed_symmetric_key', new_encrypted_symmetric_key_obj.signature);
+            
+            formData.append('new_encrypted_hmac_key', new_encrypted_hmac_key_obj.key);
+            formData.append('new_signed_hmac_key', new_encrypted_hmac_key_obj.signature);
+            
+            formData.append('csrfmiddlewaretoken', csrfToken);
+
+            const result = await $.ajax({
+                url: '/change_psw',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                headers: {
+                    'X-CSRFToken': csrfToken
+                },
+                dataType: 'json'
+            });
+
+            if (result.status === 'ok') {
+                Swal.fire({
+                    title: 'Success',
+                    text: 'Password updated successfully',
+                    icon: 'success',
+                    timer: 2000,
+                    showConfirmButton: false
+                }).then(() => {
+                    window.location.reload();
+                });
+            } else {
+                Swal.fire('Error', result.message || 'Failed to update password', 'error');
+            }
+
+        } catch (err) {
+            console.error('[DEBUG] Global Error:', err);
+            Swal.fire('Error', err.message || 'An unexpected error occurred', 'error');
+        }
+    });
+const submitEmailBtn = document.getElementById('submit-email-change');
+
+    if (submitEmailBtn) {
+        submitEmailBtn.addEventListener('click', async (event) => {
+            event.preventDefault();
+            console.log('[DEBUG] Submit Email Change clicked');
+
+            // CORRECTION 1 : On définit le token ICI pour être sûr qu'il existe
+            const csrfTokenInput = document.querySelector('[name=csrfmiddlewaretoken]');
+            if (!csrfTokenInput) {
+                console.error("CSRF Token not found!");
+                return;
+            }
+            const csrfToken = csrfTokenInput.value;
+
+            const current_psw = document.getElementById('current_psw_email').value;
+            const new_email = document.getElementById('new_email').value;
+
+            // Validations
+            if (!current_psw || !new_email) {
+                Swal.fire('Error', 'Please fill in password and new email', 'error'); return;
+            }
+            if (typeof isEmailCorrect === 'function' && !isEmailCorrect(new_email)) {
+                Swal.fire('Error', 'Invalid email format', 'error'); return;
+            }
+
+            try {
+                // --- ETAPE A : RECUPERATION & CRYPTO ---
+                Swal.fire({
+                    title: 'Processing...', 
+                    text: 'Generating keys...', 
+                    allowOutsideClick: false, 
+                    // CORRECTION 2 : Utilisation de onOpen pour les vieilles versions de SweetAlert2
+                    onOpen: () => { Swal.showLoading() } 
+                });
+
+                // 1. Récupérer données actuelles
+                const response = await $.ajax({
+                    url: '/get_current_user_data', type: 'GET',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }, dataType: 'json'
+                });
+
+                if (!response.user_data) throw new Error('Failed to get user data');
+                const user_data = response.user_data;
+
+                // 2. Vérifier mdp (Déchiffrement avec ANCIEN email/sel)
+                let profile;
+                try {
+                    profile = await handleProfile(user_data, current_psw);
+                    if (!profile) throw new Error("Decryption failed");
+                } catch (e) {
+                    Swal.fire('Error', 'Incorrect password', 'error'); return;
+                }
+
+                // 3. Préparer les clés pour le NOUVEL email
+                const keyManager = KeyManager.getKey();
+                const rawPrivateKey = keyManager._privateKey; 
+                
+                // Récupérer clé HMAC
+                const imported_decrypt_private_key = await importPrivateKey(rawPrivateKey, 'decrypt');
+                const hmac_key_base64 = await decryptWithPrivateKey(user_data.encrypted_hmac_key, imported_decrypt_private_key);
+                const hmac_key = await importHmacKey(base64ToArrayBuffer(hmac_key_base64));
+
+                // 4. Rechiffrer avec le NOUVEL email comme sel
+                const new_hmac_email = await generateMAC(new_email, hmac_key);
+                
+                // Rechiffrement critique de la clé privée
+                const new_derived_key = await derivePasswordKey(current_psw, new_email);
+                const new_derived_hash_key = await deriveHashPassword(current_psw, new_email);
+                const new_encrypted_private_key = await encryptData(rawPrivateKey, new_derived_key);
+                const new_hmac_private_key = await generateMAC(JSON.stringify(new_encrypted_private_key), new_derived_hash_key);
+
+                const payloadData = {
+                    email: new_email,
+                    hmac_email: new_hmac_email,
+                    private_key: JSON.stringify(new_encrypted_private_key),
+                    hmac_private_key: new_hmac_private_key
+                };
+
+                // --- ETAPE B : INITIATION (ENVOI OTP) ---
+                const formData = new FormData();
+                formData.append('payload', JSON.stringify(payloadData));
+                formData.append('csrfmiddlewaretoken', csrfToken);
+
+                const initResult = await $.ajax({
+                    url: '/initiate_email_change',
+                    type: 'POST',
+                    data: formData,
+                    processData: false, contentType: false,
+                    headers: { 'X-CSRFToken': csrfToken }
+                });
+
+                if (initResult.status !== 'ok') throw new Error(initResult.message);
+
+                // --- ETAPE C : SAISIE OTP ---
+                const { value: otp } = await Swal.fire({
+                    title: 'Verification Required',
+                    html: `We sent a code to <b>${new_email}</b>.<br>Enter it below to confirm change.`,
+                    input: 'text',
+                    inputPlaceholder: '123456',
+                    showCancelButton: true,
+                    confirmButtonText: 'Verify & Change',
+                    showLoaderOnConfirm: true,
+                    // showValidationMessage existe généralement sur les versions v8+, sinon utiliser alert standard
+                    preConfirm: async (otpValue) => {
+                        if (!otpValue) { 
+                            Swal.showValidationMessage ? Swal.showValidationMessage('Please enter the code') : alert('Enter code');
+                            return false; 
+                        }
+                        
+                        // --- ETAPE D : VERIFICATION FINALE ---
+                        try {
+                            const verifyData = new FormData();
+                            verifyData.append('otp', otpValue);
+                            verifyData.append('csrfmiddlewaretoken', csrfToken);
+
+                            const verifyResult = await $.ajax({
+                                url: '/verify_email_change',
+                                type: 'POST',
+                                data: verifyData,
+                                processData: false, contentType: false,
+                                headers: { 'X-CSRFToken': csrfToken }
+                            });
+                            
+                            if (verifyResult.status !== 'ok') {
+                                throw new Error(verifyResult.message);
+                            }
+                            return verifyResult;
+                        } catch (error) {
+                             if(Swal.showValidationMessage) {
+                                Swal.showValidationMessage(`Request failed: ${error.message}`);
+                             } else {
+                                 Swal.fire('Error', error.message, 'error');
+                             }
+                        }
+                    },
+                    allowOutsideClick: () => !Swal.isLoading()
+                });
+
+                if (otp) {
+                    Swal.fire({
+                        title: 'Success!',
+                        text: 'Email updated successfully. Please login again.',
+                        type: 'success', // 'type' pour les vieilles versions, 'icon' pour les nouvelles
+                        icon: 'success'
+                    }).then(() => {
+                        window.location.href = '/logout';
+                    });
+                }
+
+            } catch (err) {
+                console.error(err);
+                Swal.fire('Error', err.message || 'An unexpected error occurred', 'error');
+            }
+        });
+    }
+// ==========================================
+    // 3. CHANGEMENT PROFIL (INTELLIGENT)
+    // ==========================================
+    const submitProfileBtn = document.getElementById('submit-profile-change');
+
+    if (submitProfileBtn) {
+        submitProfileBtn.addEventListener('click', async (event) => {
+            event.preventDefault();
+            console.log('[DEBUG] Submit Profile Change clicked');
+
+            const csrfTokenInput = document.querySelector('[name=csrfmiddlewaretoken]');
+            const csrfToken = csrfTokenInput ? csrfTokenInput.value : '';
+
+            // 1. Récupérer les valeurs des inputs
+            const current_psw = document.getElementById('current_psw_profile').value;
+            // .trim() permet d'éviter qu'un espace vide soit considéré comme une modification
+            const input_firstname = document.getElementById('new_firstname').value.trim();
+            const input_lastname = document.getElementById('new_lastname').value.trim();
+            
+            const orgInput = document.getElementById('new_organization');
+            const input_organization = orgInput ? orgInput.value.trim() : null;
+
+            // Seul le mot de passe est obligatoire
+            if (!current_psw) {
+                Swal.fire('Error', 'Please enter your current password to confirm changes', 'error'); 
+                return;
+            }
+
+            // Si tout est vide, on ne fait rien
+            if (!input_firstname && !input_lastname && !input_organization) {
+                Swal.fire('Info', 'No changes detected', 'info');
+                return;
+            }
+
+            try {
+                Swal.fire({
+                    title: 'Processing...', text: 'Updating profile...', 
+                    allowOutsideClick: false, onOpen: () => { Swal.showLoading() }
+                });
+
+                // --- ETAPE 1 : RECUPERER ET DECHIFFRER LES DONNEES ACTUELLES ---
+                const response = await $.ajax({
+                    url: '/get_current_user_data', type: 'GET',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }, dataType: 'json'
+                });
+
+                if (!response.user_data) throw new Error('Failed to get user data');
+                const user_data = response.user_data;
+
+                // handleProfile renvoie l'objet déchiffré {firstname: "Jean", lastname: "Dupont", ...}
+                let current_profile_clear;
+                try {
+                    current_profile_clear = await handleProfile(user_data, current_psw);
+                    if (!current_profile_clear) throw new Error("Decryption failed");
+                } catch (e) {
+                    Swal.fire('Error', 'Incorrect password', 'error'); return;
+                }
+
+                // --- ETAPE 2 : FUSION (MERGE) ---
+                // Si l'input est rempli, on prend l'input. Sinon, on garde l'ancienne valeur.
+                
+                const final_firstname = input_firstname || current_profile_clear.firstname;
+                const final_lastname  = input_lastname  || current_profile_clear.lastname;
+                
+                // Gestion spécifique pour l'organisation (si elle existe dans le profil actuel)
+                let final_organization = null;
+                if (orgInput) {
+                    // Si l'user a tapé un truc, on prend. 
+                    // Sinon on prend l'ancienne valeur (si elle existe), sinon chaîne vide
+                    final_organization = input_organization || current_profile_clear.organization || "";
+                }
+
+                console.log(`[DEBUG] Updating to: ${final_firstname} ${final_lastname}`);
+
+                // --- ETAPE 3 : PREPARATION DES CLES ---
+                const keyManager = KeyManager.getKey();
+                const rawPrivateKey = keyManager._privateKey; 
+                const imported_decrypt_private_key = await importPrivateKey(rawPrivateKey, 'decrypt');
+
+                // On redéchiffre les clés symétriques pour pouvoir chiffrer les nouvelles données
+                // (Note: handleProfile ne retourne pas la clé symétrique brute, donc on la refait ici)
+                const symmetric_key_base64 = await decryptWithPrivateKey(user_data.encrypted_symmetric_key, imported_decrypt_private_key);
+                const symmetric_key = await importKey(base64ToArrayBuffer(symmetric_key_base64));
+
+                const hmac_key_base64 = await decryptWithPrivateKey(user_data.encrypted_hmac_key, imported_decrypt_private_key);
+                const hmac_key = await importHmacKey(base64ToArrayBuffer(hmac_key_base64));
+
+                // --- ETAPE 4 : CHIFFREMENT DES DONNEES FINALES ---
+                
+                // 1. Firstname
+                const enc_firstname_str = JSON.stringify(await encryptData(final_firstname, symmetric_key));
+                const hmac_firstname = await generateMAC(enc_firstname_str, hmac_key);
+
+                // 2. Lastname
+                const enc_lastname_str = JSON.stringify(await encryptData(final_lastname, symmetric_key));
+                const hmac_lastname = await generateMAC(enc_lastname_str, hmac_key);
+
+                const formData = new FormData();
+                formData.append('firstname', enc_firstname_str);
+                formData.append('hmac_firstname', hmac_firstname);
+                formData.append('lastname', enc_lastname_str);
+                formData.append('hmac_lastname', hmac_lastname);
+
+                // 3. Organization (Optionnel)
+                if (orgInput) {
+                    const enc_org_str = JSON.stringify(await encryptData(final_organization, symmetric_key));
+                    const hmac_org = await generateMAC(enc_org_str, hmac_key);
+                    
+                    formData.append('organization', enc_org_str);
+                    formData.append('hmac_organization', hmac_org);
+                }
+
+                formData.append('csrfmiddlewaretoken', csrfToken);
+
+                // --- ETAPE 5 : ENVOI ---
+                const result = await $.ajax({
+                    url: '/change_profile',
+                    type: 'POST',
+                    data: formData,
+                    processData: false, contentType: false,
+                    headers: { 'X-CSRFToken': csrfToken }
+                });
+
+                if (result.status === 'ok') {
+                    Swal.fire({
+                        title: 'Success', text: 'Profile updated successfully',
+                        type: 'success', icon: 'success',
+                        timer: 2000, showConfirmButton: false
+                    }).then(() => window.location.reload());
+                } else {
+                    Swal.fire('Error', result.message, 'error');
+                }
+
+            } catch (err) {
+                console.error(err);
+                Swal.fire('Error', err.message || 'Error', 'error');
+            }
+        });
+    }
+});
+</script>
+{% endblock extra_js %}

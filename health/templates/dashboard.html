@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="main-panel ps" id="main-panel">
+    <div class="panel-header panel-header-sm"></div>
+    <div class="container-fluid">
+        <div class="card">
+            <div>
+                <h5 class="card-title p-3 notch bg-gradient text-white text-center mt-0" style="width: fit-content;display: inline-block;"><b>Browse Folders</b></h5>
+            </div>
+            <div class="row justify-content-center">
+                <div class="col-md-12">
+                    <table class="table table-hover">
+                        <thead class="font-weight-bold">
+                            <tr>
+                                <th>#</th>
+                                <th>Medical Record</th>
+                                <th>Created</th>
+                                <th>Appointment date</th>
+                                <th>Appointed Doctors</th>
+                                <th>Options</th>
+                            </tr>
+                        </thead>
+                        <tbody id="folder-container"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="folderModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create Record</h5>
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" class="form-control" id="foldernamebox" placeholder="Folder Name">
+            </div>
+            <div class="modal-body">
+                <input type="date" class="form-control" id="folderdatebox" placeholder="Appointment Date">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="btn-save-folder">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="shareModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Share with Doctor</h5>
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Select Email:</label>
+                    <div class="d-flex">
+                        <select class="form-control mr-1" id="share_emailbox"></select>
+                        <button class="btn btn-info m-0" onclick="SharingManager.share()">Share</button>
+                    </div>
+                </div>
+                <div class="col-md-12">
+                    <table class="table table-hover">
+                        <thead><tr><th>#</th><th>Email</th><th>Revoke</th></tr></thead>
+                        <tbody id="shared-container"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        const userId = {{ request.session.user_id }};
+        const token = "{{ csrf_token }}";
+        
+        DashboardManager.init(userId, token, false);
+        DashboardManager.loadFolders();
+
+        $.ajax({
+            url: 'list_doctors', type: 'get', headers:{'X-CSRFToken': token},
+            success: function(data) {
+                let sel = document.getElementById("share_emailbox");
+                data.forEach(email => {
+                    let opt = document.createElement("option");
+                    opt.innerText = email;
+                    sel.appendChild(opt);
+                });
+            }
+        });
+    });
+</script>
+{% endblock extra_js %}

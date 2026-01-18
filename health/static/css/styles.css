@@ -1,0 +1,65 @@
+#files-container{
+    margin-left: 0vh;
+}
+@media screen and (max-width: 991px){
+    #files-container{
+        margin-left: 0;
+    }
+
+}
+.notch{
+        border-radius:0 0 10px 10px;
+    margin-left: auto;margin-right: auto
+    }
+.bg-gradient{
+    background: linear-gradient(40deg,#ffd86f,#fc6262) !important;
+    box-shadow: 0 2px 4px #b4b4b4;
+}
+
+/* --- LOGIN / SIGNUP (Moved from index.html) --- */
+html, body { margin: 0; padding: 0; height: 100%; }
+#full-size { min-height: 100vh; width: 100%; overflow: auto; padding-top: 50px; }
+
+.card-container {
+    border-radius: 12px;
+    background: #fff;
+    padding: 25px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+    max-width: 450px;
+    width: 100%;
+    margin-bottom: 50px;
+}
+
+.illustration-container {
+    padding: 20px;
+    max-width: 500px;
+}
+.illustration-container img {
+    width: 100%;
+    height: auto;
+}
+
+/* --- VERIFICATION (Moved from verify.html) --- */
+.title-holder {
+    border-radius: 0 0 10px 10px;
+    width: fit-content;
+    padding: 15px;
+    margin: 0 auto 20px auto;
+    box-shadow: 1px 1px 10px #c1c1c1;
+    background: linear-gradient(40deg, #45cafc, #303f9f) !important;
+    color: white;
+}
+
+.mail-animation {
+    animation: move 2s infinite;
+}
+
+@keyframes move {
+    0% { margin-top: 50px; }
+    50% { margin-top: 70px; }
+    100% { margin-top: 50px; }
+}
+
+@media only screen and (max-width: 992px) {
+    .mail-animation { visibility: hidden; }
+}

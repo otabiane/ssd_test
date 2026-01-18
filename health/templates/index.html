@@ -1,0 +1,198 @@
+{% extends 'base.html' %}
+{% load static %}
+{% static 'img' as img %}
+{% static 'js' as js %}
+
+{% block content %}
+<div class="container-fluid bg-gradient d-flex flex-column align-items-center" id="full-size">
+    
+    <div class="row justify-content-center w-100">
+        <div class="col-md-5 d-none d-md-flex justify-content-center align-items-center illustration-container">
+             <img src="{{ img }}/illustration2.png" alt="Medical Illustration" />
+        </div>
+
+        <div class="col-md-5 d-flex justify-content-center">
+            <div class="card-container text-center">
+
+                <div>
+                    {% if messages %}
+                        {% for message in messages %}
+                            {% if forloop.last %}
+                                <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}success{% endif %} p-2 rounded mb-3">{{ message }}</div>
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+
+                    <h4 class="pt-2 pb-2">Welcome to Health Platform</h4>
+                    
+                    <ul class="nav nav-pills nav-fill mb-4" id="pills-tab" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link active" id="pills-login-tab" data-toggle="pill" href="#pills-login" role="tab">Login</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="pills-signup-tab" data-toggle="pill" href="#pills-signup" role="tab">Signup</a>
+                        </li>
+                    </ul>
+                    
+                    <div class="tab-content" id="pills-tabContent">
+                        
+                        <div class="tab-pane fade show active" id="pills-login" role="tabpanel">
+                            <p class="text-muted">Sign in to your account</p>
+                            <form id="login-form" method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="Login">
+                                
+                                <div class="input-group mb-3">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text bg-info text-white">Email</span>
+                                    </div>
+                                    <input name="email" id="login_email" type="email" required class="form-control" placeholder="Email Address">
+                                </div>
+
+                                <div class="input-group mb-3">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text bg-info text-white">Password</span>
+                                    </div>
+                                    <input name="password" id="login_password" type="password" required class="form-control" placeholder="Password">
+                                </div>
+                                
+                                <div class="pt-3">
+                                    <input type="submit" name="submit" value="Login" class="btn btn-primary btn-block" />
+                                </div>
+                            </form>
+                        </div>
+                        
+                        <div class="tab-pane fade" id="pills-signup" role="tabpanel">
+                            <p class="text-muted" id="signup-header">Select your role to continue registration</p>
+                            
+                            <div id="signup-steps">
+                                
+                                <div id="step-role-select">
+                                    <div class="d-flex justify-content-between my-4">
+                                        <button type="button" class="btn btn-lg btn-outline-info w-48 btn-role-select" data-role="patient">Patient</button>
+                                        <button type="button" class="btn btn-lg btn-outline-info w-48 btn-role-select" data-role="doctor">Doctor</button>
+                                    </div>
+                                </div>
+
+                                <form id="step-patient-form" class="signup-form" style="display:none;" method="post">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="role" value="patient">
+                                    <p class="alert alert-success">Register as a <b>Patient</b></p>
+
+                                    <div class="input-group mb-2">
+                                        <div class="input-group-prepend"><span class="input-group-text bg-info text-white">Email</span></div>
+                                        <input name="email" type="email" required class="form-control" placeholder="Email Address" id="p-email">
+                                    </div>
+                                    
+                                    <div class="input-group mb-2">
+                                        <div class="input-group-prepend"><span class="input-group-text bg-info text-white">First Name</span></div>
+                                        <input name="firstname" type="text" required class="form-control" id="p-firstname">
+                                    </div>
+                                    <div class="input-group mb-2">
+                                        <div class="input-group-prepend"><span class="input-group-text bg-info text-white">Last Name</span></div>
+                                        <input name="lastname" type="text" required class="form-control" id="p-lastname">
+                                    </div>
+
+                                    <div class="input-group mb-2">
+                                        <div class="input-group-prepend"><span class="input-group-text bg-info text-white">Birthdate</span></div>
+                                        <input name="date_of_birth" type="date" required class="form-control" id="p-birthdate">
+                                    </div>
+
+                                    <div class="input-group mb-2">
+                                        <div class="input-group-prepend"><span class="input-group-text bg-info text-white">Password</span></div>
+                                        <input name="password" type="password" required minlength="12" class="form-control" placeholder="Choose a secure password with 12 characters" id="p-password">
+                                    </div>
+
+                                    <input type="submit" name="submit" value="Signup" class="btn btn-success btn-block mb-2" />
+                                    <button type="button" class="btn btn-link btn-block btn-back">Back to Role Selection</button>
+                                </form>
+
+                                <form id="hidden-redirect-form" method="POST" action="{% url 'get_entry' %}" style="display:none;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action_btn" value="Signup">
+                                    <input type="hidden" name="role" value="patient">
+                                    <input type="hidden" name="encrypted_payload" id="hidden_payload">
+                                </form>
+
+                                <!-- Doctor signup (this one must submit directly as multipart) -->
+                                <form id="step-doctor-form"
+                                      class="signup-form"
+                                      style="display:none;"
+                                      method="POST"
+                                      action="{% url 'get_entry' %}"
+                                      enctype="multipart/form-data"
+                                      hx-boost="false">
+
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action_btn" value="Signup">
+                                    <input type="hidden" name="encrypted_payload" id="doctor_encrypted_payload">
+                                    <input type="hidden" name="role" value="doctor">
+
+                                    <p class="alert alert-success">Register as a <b>Doctor</b></p>
+                                    
+                                    <div class="input-group mb-2">
+                                        <div class="input-group-prepend"><span class="input-group-text bg-info text-white">Email</span></div>
+                                        <input name="email" type="email" required class="form-control" placeholder="Email Address" id="d-email">
+                                    </div>
+
+                                    <div class="input-group mb-2">
+                                        <div class="input-group-prepend"><span class="input-group-text bg-info text-white">First Name</span></div>
+                                        <input name="firstname" type="text" required class="form-control" id="d-firstname">
+                                    </div>
+
+                                    <div class="input-group mb-2">
+                                        <div class="input-group-prepend"><span class="input-group-text bg-info text-white">Last Name</span></div>
+                                        <input name="lastname" type="text" required class="form-control" id="d-lastname">
+                                    </div>
+                                    
+                                    <div class="input-group mb-2">
+                                        <div class="input-group-prepend"><span class="input-group-text bg-info text-white">Organization</span></div>
+                                        <input name="medical_organisation" type="text" required class="form-control" id="d-organization">
+                                    </div>
+
+                                    <div class="input-group mb-2">
+                                        <div class="input-group-prepend"><span class="input-group-text bg-info text-white">Certificate (PEM)</span></div>
+                                        <input type="file" class="form-control" id="d-certificate" name="certificate" accept=".crt,.pem" required>
+                                    </div>
+
+                                    <div class="input-group mb-2">
+                                        <div class="input-group-prepend"><span class="input-group-text bg-info text-white">Password</span></div>
+                                        <input name="password" type="password" required minlength="12" class="form-control" placeholder="Choose a secure password with 12 characters" id="d-password">
+                                    </div>
+
+                                    <input type="submit" name="submit" value="Signup" class="btn btn-success btn-block mb-2" />
+                                    <button type="button" class="btn btn-link btn-block btn-back">Back to Role Selection</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div> 
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="forgotModal" tabindex="-1" role="dialog" aria-labelledby="forgotPswModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Registered Email Address</label>
+                    <input type="email" required class="form-control" id="pswemailbox">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock content %}
+
+{% block extra_js %}
+<script>
+  $(document).ready(function() {
+    // Reliable CSRF: read from an existing csrfmiddlewaretoken input on the page
+    const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value;
+    AuthManager.init(csrf);
+  });
+</script>
+{% endblock extra_js %}

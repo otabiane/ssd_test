@@ -1,0 +1,61 @@
+{% load static %}
+{% static 'img' as img %}
+{% static 'css' as css %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Health</title>
+
+    <link rel="stylesheet" href="{{ css }}/bootstrap.min.css"/>
+    <link rel="stylesheet" href="{{ css }}/styles.css"/> 
+
+    <link rel="shortcut icon" type="image/png" href="{{ img }}/favicon.ico"/>
+</head>
+<body>
+    <div class="container mt-5 p-4">
+        <div class="row justify-content-center">
+             <div class="col-md-12 row justify-content-center">
+                <img src="../static/img/mail.svg" class="col-md-5 col-sm-6 col-xs-12 mail-animation" style="position: absolute;z-index: 1"/>
+                <img src="../static/img/mailCover.svg" class="col-md-5 col-sm-6 col-xs-6 mail-animation" style="position: absolute;z-index: -1"/>
+                
+                <div class="col-md-3 text-center card-container" style="position: fixed;z-index: 0;height:412px"></div>
+                
+                <form class="col-md-4 text-center" action="validate_otp" method="post" style="z-index: 15">
+                     {% csrf_token %}
+                    <div>
+                        {% if messages %}
+                            {% for message in messages %}
+                                {% if forloop.last %}
+                                    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}success{% endif %} p-2 rounded mb-3">{{ message }}</div>
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                    
+                    <h5 class="title-holder">VERIFICATION</h5>
+                    <p class="text-muted">You will need to verify your email to complete the registration</p>
+                    
+                    <div class="row justify-content-center">
+                        <div class="input-group col-md-10 mb-3 pb-1">
+                              <div class="input-group-prepend">
+                                <span class="input-group-text bg-info text-white">@</span>
+                              </div>
+                              <input name="email_field" id="email_field" type="email" required class="form-control" placeholder="Email address">
+                        </div>
+                        <div class="input-group col-md-10 mb-3 pb-1">
+                                  <div class="input-group-prepend">
+                                    <span class="input-group-text bg-info text-white">*</span>
+                                  </div>
+                                  <input name="otp_field" id="otp_field" type="number" min="100000" max="999999" required class="form-control" placeholder="OTP"/>
+                        </div>
+                    </div>
+
+                    <input type="submit" class="btn btn-success btn-md" style="margin-bottom: 80px" value="Verify"/>
+                </form>
+             </div>
+        </div>
+    </div>
+</body>
+</html>

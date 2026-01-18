@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% load static %}
+{% static 'js' as js %}
+
+{% block content %}
+ <div class="main-panel ps" id="main-panel">
+ <div class="panel-header panel-header-sm">
+  </div>
+     <div class="content">
+        <div class="container-fluid">
+            <div class="card text-center">
+                <div><h5 class="card-title p-3 notch bg-gradient text-white text-center mt-0" style="width: fit-content"><b>Your Notifications</b></h5>  </div>
+                <div class="row justify-content-center" id="notifications-container">
+                
+                {% for notif in notifications %}
+                <div class="col-md-4 m-2">
+                    <div class="card shadow-sm">
+                    <div class="card-body text-left">
+                        <h6 class="card-title">{{ notif.shared_by }}</h6>
+                        <p class="card-text">{{ notif.message }}</p>
+                        {% if notif.folder %}
+                        <p class="text-muted small">Folder: {{ notif.folder }}</p>
+                        {% endif %}
+                        <p class="text-muted small">{{ notif.created_at }}</p>
+                        <button class="btn btn-sm btn-outline-primary mark-read" data-id="{{ notif.id }}">Mark as read</button>
+                    </div>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-muted">No notifications yet.</p>
+                {% endfor %}
+                </div>
+
+            </div>
+            </div>
+        </div>
+{% endblock content %}
+
+{% block extra_js %}
+    <script src="https://kit.fontawesome.com/13852d7c0f.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mediaelement/4.2.16/mediaelement.min.js"></script>
+    <script src="https://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+    
+    <script>
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('mark-read')) {
+            const id = e.target.dataset.id;
+            fetch('/mark_notification_read', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({id: id})
+            }).then(res => res.json())
+            .then(data => {
+                if (data.status) {
+                    e.target.closest('.card').classList.remove('border-primary');
+                    e.target.remove();
+                }
+            });
+        }
+    });
+    </script>
+{% endblock extra_js %}
